@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environments
+.env
+.env.local
+.env.*
+
+# Local Database Backups & Uploads
+backend/backups/*.json
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Editor & OS files
+.vscode/
+.idea/
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
