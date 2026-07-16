@@ -99,3 +99,17 @@ class Attendance(Base):
 
     # Constraints
     __table_args__ = (UniqueConstraint('student_id', 'date', name='unique_student_date'),)
+
+class Announcement(Base):
+    __tablename__ = "announcements"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(150), nullable=False)
+    content = Column(Text, nullable=False)
+    created_by = Column(String(100), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=True)
+
+    # Relationships
+    department = relationship("Department")
+

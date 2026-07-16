@@ -146,6 +146,18 @@ function setupEventListeners() {
 
     // Logout actions
     document.getElementById("btn-logout").addEventListener("click", logout);
+
+    // Broadcast Announcement Form Submit
+    const postAnnForm = document.getElementById("post-announcement-form");
+    if (postAnnForm) {
+        postAnnForm.addEventListener("submit", handlePostAnnouncement);
+    }
+
+    // Modal show listener to load department options
+    const postAnnModal = document.getElementById("postAnnouncementModal");
+    if (postAnnModal) {
+        postAnnModal.addEventListener("show.bs.modal", setupAnnouncementsModal);
+    }
     
     // Toggle login/register switch
     const toggleToReg = document.getElementById("link-to-register");
@@ -400,6 +412,9 @@ async function loadStudentDashboard() {
         } else {
             grid.innerHTML = `<div class="col-12 text-center text-muted py-4">No activities logged yet. Click "Add Activity Record" to upload one.</div>`;
         }
+
+        // Fetch announcements for Student
+        loadAnnouncements();
     } catch (e) {
         showToast("Error", "Failed to retrieve student dashboard data.", "danger");
     }
@@ -504,6 +519,9 @@ async function loadStudentAttendanceLogs() {
             headers: { "Authorization": `Bearer ${currentToken}` }
         });
         const logs = await response.json();
+        
+        // Render Heatmap Grid
+        renderAttendanceHeatmap(logs);
         
         const grid = document.getElementById("student-attendance-grid");
         grid.innerHTML = "";
@@ -611,6 +629,9 @@ async function loadFacultyDashboard() {
         } else {
             tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No student records registered in your department.</td></tr>`;
         }
+
+        // Fetch announcements for Faculty
+        loadAnnouncements();
     } catch (e) {
         showToast("Error", "Failed to retrieve faculty dashboard data.", "danger");
     }
@@ -1312,4 +1333,231 @@ function showToast(title, message, type = "success") {
     toastEl.addEventListener("hidden.bs.toast", () => {
         toastEl.remove();
     });
+}
+// ----------------- Announcements System Handlers -----------------
+
+async function loadAnnouncements() {
+    if (!currentToken) return;
+
+    try {
+        const response = await fetch(`${API_URL}/announcements`, {
+            headers: { "Authorization": `Bearer ${currentToken}` }
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || "Failed to retrieve bulletins");
+        }
+
+        const isStudent = currentUser.role === 'student';
+        const cardId = isStudent ? 'student-announcements-card' : 'faculty-announcements-card';
+        const listId = isStudent ? 'student-announcements-list' : 'faculty-announcements-list';
+
+        const card = document.getElementById(cardId);
+        const list = document.getElementById(listId);
+
+        if (!list) return;
+        list.innerHTML = "";
+
+        if (data.length > 0) {
+            card.style.display = "block";
+            data.forEach(ann => {
+                const col = document.createElement("div");
+                col.className = "col-12 mb-2";
+
+                const isDept = ann.department_code != null;
+                const scopeBadge = isDept 
+                    ? `<span class="badge-custom text-info py-0 px-2 small" style="background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.2);">${ann.department_code} Dept</span>`
+                    : `<span class="badge-custom text-success py-0 px-2 small" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2);">Global Notice</span>`;
+
+                const canDelete = currentUser.role === 'admin' || (currentUser.role === 'faculty' && ann.created_by === currentUser.name);
+                const deleteBtn = canDelete
+                    ? `<button class="btn btn-link text-danger p-0 border-0 ms-2 small" style="text-decoration:none; font-size:0.75rem;" onclick="deleteAnnouncementRecord(${ann.id})"><i class="bi bi-trash"></i> Delete</button>`
+                    : "";
+
+                col.innerHTML = `
+                    <div class="announcement-item p-3 ${isDept ? 'dept-targeted' : ''}">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <h6 class="text-white mb-0" style="font-weight:600; font-size:0.95rem;">${escapeHTML(ann.title)}</h6>
+                            <div class="d-flex align-items-center small text-secondary" style="font-size:0.8rem;">
+                                <span>${formatDate(ann.created_at)}</span>
+                                ${deleteBtn}
+                            </div>
+                        </div>
+                        <p class="text-secondary small mb-2" style="line-height:1.4;">${escapeHTML(ann.content)}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted" style="font-size:0.78rem;">By <strong>${escapeHTML(ann.created_by)}</strong></span>
+                            ${scopeBadge}
+                        </div>
+                    </div>
+                `;
+                list.appendChild(col);
+            });
+        } else {
+            card.style.display = "none";
+        }
+    } catch (e) {
+        console.error("Failed to load announcements:", e);
+    }
+}
+
+async function handlePostAnnouncement(e) {
+    e.preventDefault();
+    const title = document.getElementById("ann-title").value;
+    const content = document.getElementById("ann-content").value;
+    const targetVal = document.getElementById("ann-dept-target").value;
+    const department_id = targetVal === "global" ? null : parseInt(targetVal);
+
+    try {
+        const response = await fetch(`${API_URL}/announcements`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${currentToken}`
+            },
+            body: JSON.stringify({ title, content, department_id })
+        });
+
+        if (response.ok) {
+            showToast("Success", "Announcement broadcasted successfully.", "success");
+            document.getElementById("post-announcement-form").reset();
+            
+            // Close modal
+            const modalEl = document.getElementById("postAnnouncementModal");
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+
+            // Refresh current dashboards
+            if (currentUser.role === "admin") {
+                loadAdminDashboard();
+            } else if (currentUser.role === "faculty") {
+                loadFacultyDashboard();
+            }
+        } else {
+            const err = await response.json();
+            throw new Error(err.detail || "Broadcast announcement failed");
+        }
+    } catch (err) {
+        showToast("Error", err.message, "danger");
+    }
+}
+
+async function deleteAnnouncementRecord(id) {
+    if (!confirm("Are you sure you want to delete this announcement bulletin?")) return;
+
+    try {
+        const response = await fetch(`${API_URL}/announcements/${id}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${currentToken}` }
+        });
+
+        if (response.ok) {
+            showToast("Success", "Announcement deleted.", "success");
+            // Refresh
+            if (currentUser.role === "student") {
+                loadStudentDashboard();
+            } else if (currentUser.role === "faculty") {
+                loadFacultyDashboard();
+            } else {
+                loadAdminDashboard();
+            }
+        } else {
+            const err = await response.json();
+            throw new Error(err.detail || "Failed to remove notice");
+        }
+    } catch (err) {
+        showToast("Error", err.message, "danger");
+    }
+}
+
+async function setupAnnouncementsModal() {
+    const select = document.getElementById("ann-dept-target");
+    if (!select) return;
+
+    // Reset fields
+    document.getElementById("ann-title").value = "";
+    document.getElementById("ann-content").value = "";
+
+    if (currentUser.role === "faculty") {
+        // Locked to faculty's department
+        select.innerHTML = `<option value="${currentUser.department_id || ''}" selected>${currentUser.department_name || 'My Department'}</option>`;
+        select.disabled = true;
+    } else if (currentUser.role === "admin") {
+        select.disabled = false;
+        try {
+            const res = await fetch(`${API_URL}/admin/departments`, {
+                headers: { "Authorization": `Bearer ${currentToken}` }
+            });
+            const depts = await res.json();
+            select.innerHTML = '<option value="global" selected>Global (All Departments)</option>';
+            depts.forEach(d => {
+                select.innerHTML += `<option value="${d.id}">${d.name} (${d.code})</option>`;
+            });
+        } catch (e) {
+            console.error("Failed to populate target departments:", e);
+        }
+    }
+}
+
+// ----------------- Visual Heatmap Calendar Renderer -----------------
+
+function renderAttendanceHeatmap(logs) {
+    const container = document.getElementById("attendance-heatmap");
+    if (!container) return;
+    container.innerHTML = "";
+
+    // Map logs for fast matching
+    const attendanceMap = {};
+    logs.forEach(log => {
+        attendanceMap[log.date] = log.status;
+    });
+
+    const today = new Date();
+    const cells = [];
+    
+    // We want a grid of 53 columns (weeks) by 7 rows (days) representing 364 days ago to today.
+    // Start date is 364 days ago
+    const startDate = new Date();
+    startDate.setDate(today.getDate() - 364);
+
+    // Adjust start date to the previous Sunday so columns align correctly
+    const startDayOfWeek = startDate.getDay();
+    startDate.setDate(startDate.getDate() - startDayOfWeek);
+
+    const totalDays = 371; // 53 weeks * 7 days
+    
+    for (let i = 0; i < totalDays; i++) {
+        const currentDate = new Date(startDate);
+        currentDate.setDate(startDate.getDate() + i);
+
+        if (currentDate > today) {
+            // Future cells are displayed as empty
+            const cell = document.createElement("div");
+            cell.className = "heatmap-cell level-none";
+            cell.style.opacity = "0.2";
+            cells.push(cell);
+            continue;
+        }
+
+        const dateStr = currentDate.toISOString().substring(0, 10);
+        const status = attendanceMap[dateStr];
+        
+        const cell = document.createElement("div");
+        cell.className = "heatmap-cell";
+        
+        let statusText = "No Record";
+        if (status) {
+            cell.classList.add(`level-${status}`);
+            statusText = status.toUpperCase();
+        } else {
+            cell.classList.add("level-none");
+        }
+        
+        const formattedDate = currentDate.toLocaleDateString("en-US", { year: 'numeric', month: 'short', day: 'numeric' });
+        cell.title = `Date: ${formattedDate} | Status: ${statusText}`;
+        cells.push(cell);
+    }
+
+    // Insert all cells in order. The CSS grid-auto-flow: column aligns columns vertically
+    cells.forEach(c => container.appendChild(c));
 }

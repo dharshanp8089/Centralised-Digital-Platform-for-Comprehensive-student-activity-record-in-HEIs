@@ -184,3 +184,23 @@ class DashboardStats(BaseModel):
     average_attendance: float
     category_breakdown: List[CategoryCount]
     department_distribution: List[DepartmentCount]
+
+# ----------------- Announcements -----------------
+
+class AnnouncementCreate(BaseModel):
+    title: str = Field(..., min_length=3, max_length=150)
+    content: str = Field(..., min_length=5)
+    department_id: Optional[int] = None
+
+class AnnouncementOut(BaseModel):
+    id: int
+    title: str
+    content: str
+    created_by: str
+    created_at: datetime
+    department_id: Optional[int] = None
+    department_code: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+

@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 # Import routes
-from backend.routes import auth_routes, student_routes, faculty_routes, admin_routes
+from backend.routes import auth_routes, student_routes, faculty_routes, admin_routes, announcement_routes
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -32,6 +32,8 @@ app.include_router(auth_routes.router, prefix="/api")
 app.include_router(student_routes.router, prefix="/api")
 app.include_router(faculty_routes.router, prefix="/api")
 app.include_router(admin_routes.router, prefix="/api")
+app.include_router(announcement_routes.router, prefix="/api")
+
 
 # API Status Healthcheck
 @app.get("/api")

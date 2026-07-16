@@ -11,6 +11,8 @@ DROP TABLE IF EXISTS faculty CASCADE;
 DROP TABLE IF EXISTS students CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS departments CASCADE;
+DROP TABLE IF EXISTS announcements CASCADE;
+
 
 -- 1. Departments Table
 CREATE TABLE departments (
@@ -78,3 +80,14 @@ CREATE TABLE attendance (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_student_date UNIQUE(student_id, date)
 );
+
+-- 7. Announcements Table
+CREATE TABLE announcements (
+    id SERIAL PRIMARY KEY,
+    title VARCHAR(150) NOT NULL,
+    content TEXT NOT NULL,
+    created_by VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    department_id INTEGER REFERENCES departments(id) ON DELETE CASCADE
+);
+

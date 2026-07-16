@@ -323,10 +323,43 @@ def seed_data():
                 db.add(att)
                 attendance_logs_count += 1
         
+        # 7. Seed Announcements
+        announcements_data = [
+            {
+                "title": "Welcome to the Student Activity Portal!",
+                "content": "Welcome to the newly launched centralized digital platform for co-curricular achievements and verification. Please upload all your certificates, internships, and placement records here.",
+                "created_by": "Administrator",
+                "department_id": None
+            },
+            {
+                "title": "CSE Activity Submission Deadline",
+                "content": "All Computer Science students must upload their project and internship documents before the upcoming Friday for review by the department heads.",
+                "created_by": "Dr. Sarah Connor",
+                "department_id": dept_map["CSE"].id
+            },
+            {
+                "title": "ECE Certification Guidelines",
+                "content": "Students submitting hardware course certifications must attach verifiable PDF transcripts matching the dates precisely.",
+                "created_by": "Dr. Alan Turing",
+                "department_id": dept_map["ECE"].id
+            }
+        ]
+
+        for ann in announcements_data:
+            a = models.Announcement(
+                title=ann["title"],
+                content=ann["content"],
+                created_by=ann["created_by"],
+                department_id=ann["department_id"]
+            )
+            db.add(a)
+
         db.commit()
+        print(f"Seeded {len(announcements_data)} announcements.")
         print(f"Seeded {attendance_logs_count} attendance records.")
         print("--- Seeding Completed Successfully! ---")
         return True
+
     except Exception as e:
         db.rollback()
         print("Error during database seeding:")
